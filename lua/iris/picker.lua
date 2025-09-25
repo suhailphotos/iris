@@ -75,7 +75,6 @@ function P.open(core)
   local entries = build_entries(core)
 
 
-  local orig = { name = vim.g.colors_name, tgc = vim.o.termguicolors }
   local orig = {
     name = vim.g.colors_name,
     tgc  = vim.o.termguicolors,
@@ -147,7 +146,14 @@ function P.open(core)
       end
 
       local function confirm()
-        -- keep the previewed choice, just restore statusline mode
+        -- Apply the currently selected entry, then close.
+        local e = action_state.get_selected_entry()
+        if e and e.value then
+          apply(core, e.value.name, e.value.from)
+          -- record what we just applied so future previews don't reapply needlessly
+          last_previewed = e.value.from .. "::" .. e.value.name
+        end
+        -- restore statusline mode after applying
         vim.o.laststatus = orig.last
         actions.close(bufnr)
       end
