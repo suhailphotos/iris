@@ -14,6 +14,8 @@ function M.setup(opts)
       mira         = builtins.mira(),
       nord         = builtins.nord(),
       ["rose-pine"] = builtins.rose_pine({ default_variant = vim.g.rose_pine_default_variant or "main" }),
+      catppuccin    = builtins.catppuccin({ default_flavour = vim.g.catppuccin_flavour or "mocha" }),
+      tokyonight    = builtins.tokyonight({ default_style = vim.g.tokyonight_style or "storm" }),
     }
   else
     M._families = opts.families

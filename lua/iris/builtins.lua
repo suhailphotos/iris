@@ -38,4 +38,44 @@ function B.rose_pine(opts)
   end
 end
 
+-- Catppuccin (variants: latte | frappe | macchiato | mocha)
+function B.catppuccin(opts)
+  opts = opts or {}
+  local flavour = opts.default_flavour or vim.g.catppuccin_flavour or "mocha"
+  return function()
+    vim.opt.termguicolors = true
+    vim.cmd("hi clear")
+    local ok, c = pcall(require, "catppuccin")
+    if ok and c and c.setup then
+      c.setup({
+        flavour = flavour,              -- picks the default variant
+        background = { light = "latte", dark = flavour },
+        -- you can honor user toggles if you want:
+        transparent_background = vim.g.catppuccin_transparent or false,
+      })
+    end
+    pcall(vim.cmd.colorscheme, "catppuccin")  -- base entry; variants still show in the list
+    return true
+  end
+end
+
+-- TokyoNight (variants: storm | night | day | moon)
+function B.tokyonight(opts)
+  opts = opts or {}
+  local style = opts.default_style or vim.g.tokyonight_style or "storm"
+  return function()
+    vim.opt.termguicolors = true
+    vim.cmd("hi clear")
+    local ok, tn = pcall(require, "tokyonight")
+    if ok and tn and tn.setup then
+      tn.setup({
+        style = style,        -- default dark variant
+        light_style = "day",  -- default light variant
+      })
+    end
+    pcall(vim.cmd.colorscheme, "tokyonight")
+    return true
+  end
+end
+
 return B
