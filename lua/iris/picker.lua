@@ -1,6 +1,13 @@
 local P = {}
 
 local function norm(s) return (s:gsub("[_%s]", "-"):lower()) end
+local function post_refresh()
+  -- Drop any per-window overrides that might fight the new scheme
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    pcall(vim.api.nvim_set_option_value, "winhighlight", "", { scope = "local", win = win })
+  end
+  vim.cmd("redrawstatus!")
+end
 
 local function build_entries(core)
   local families_norm, entries = {}, {}
@@ -43,6 +50,7 @@ local LIGHT = { ["tokyonight-day"]=true, ["rose-pine-dawn"]=true, ["catppuccin-l
 local function apply(core, name, from)
   if from == "family" then
     core.use(name)
+    post_refresh()
     return
   end
 
@@ -54,6 +62,7 @@ local function apply(core, name, from)
   vim.opt.termguicolors = true
 
   pcall(vim.cmd.colorscheme, name)
+  post_refresh()
 end
 
 local function preload_theme_plugins(family_names)
@@ -65,7 +74,15 @@ function P.open(core)
   preload_theme_plugins(core.list())
   local entries = build_entries(core)
 
+
   local orig = { name = vim.g.colors_name, tgc = vim.o.termguicolors }
+  local orig = {
+    name = vim.g.colors_name,
+    tgc  = vim.o.termguicolors,
+    last = vim.o.laststatus,
+  }
+  -- Use a single global statusline during the picker: avoids NC vs active confusion
+  vim.o.laststatus = 3
   local ok_t = pcall(require, "telescope")
   if not ok_t then
     local choices = {}
@@ -87,9 +104,11 @@ function P.open(core)
 
   local last_previewed, gen = nil, 0
   local function restore()
+    -- restore tgc/colorscheme
     vim.opt.termguicolors = orig.tgc
     if orig.name and orig.name ~= "" then pcall(vim.cmd.colorscheme, orig.name)
     else pcall(vim.cmd.colorscheme, "default") end
+    post_refresh()
     last_previewed = nil
   end
   local function schedule_preview(bufnr)
@@ -127,8 +146,17 @@ function P.open(core)
         map("n", k, move_then_preview(PREV)); map("i", k, move_then_preview(PREV))
       end
 
-      local function confirm() actions.close(bufnr) end
-      local function cancel() restore(); actions.close(bufnr) end
+      local function confirm()
+        -- keep the previewed choice, just restore statusline mode
+        vim.o.laststatus = orig.last
+        actions.close(bufnr)
+      end
+      local function cancel()
+        -- revert colors + restore statusline mode
+        restore()
+        vim.o.laststatus = orig.last
+        actions.close(bufnr)
+      end
       map("n", "<CR>", confirm); map("i", "<CR>", confirm)
       map("n", "<Esc>", cancel);  map("i", "<Esc>", cancel)
       map("n", "<C-c>", cancel);  map("i", "<C-c>", cancel)

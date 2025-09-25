@@ -63,4 +63,22 @@ function M.pick() picker.open(M) end
 
 function M.status() return { current = M.current, termguicolors = vim.o.termguicolors } end
 
+-- Force-reapply current theme and refresh UI cleanly
+function M.reapply()
+  if not M.current then return end
+  local fn = M._families[M.current]
+  if fn then
+    fn()
+  else
+    pcall(vim.cmd.colorscheme, M.current)
+  end
+  -- clear per-window highlights and refresh statusline
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    pcall(vim.api.nvim_set_option_value, "winhighlight", "", { scope = "local", win = win })
+  end
+  vim.cmd("redrawstatus!")
+end
+
+vim.api.nvim_create_user_command("IrisReapply", function() M.reapply() end, {})
+
 return M
