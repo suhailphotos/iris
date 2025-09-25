@@ -38,12 +38,21 @@ local function find_default_index(entries, families)
   return 1
 end
 
+local LIGHT = { ["tokyonight-day"]=true, ["rose-pine-dawn"]=true, ["catppuccin-latte"]=true }
+
 local function apply(core, name, from)
   if from == "family" then
-    core.use(name); return
+    core.use(name)
+    return
   end
-  vim.opt.termguicolors = true
+
   vim.cmd("hi clear")
+  if vim.fn.exists("syntax_on") == 1 then vim.cmd("syntax reset") end
+
+  -- ensure UI matches the variant we’re previewing
+  vim.o.background = LIGHT[name] and "light" or "dark"
+  vim.opt.termguicolors = true
+
   pcall(vim.cmd.colorscheme, name)
 end
 
