@@ -2,7 +2,6 @@ local P = {}
 
 local function norm(s) return (s:gsub("[_%s]", "-"):lower()) end
 local function post_refresh()
-  -- Drop any per-window overrides that might fight the new scheme
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     pcall(vim.api.nvim_set_option_value, "winhighlight", "", { scope = "local", win = win })
   end
@@ -57,7 +56,6 @@ local function apply(core, name, from)
   vim.cmd("hi clear")
   if vim.fn.exists("syntax_on") == 1 then vim.cmd("syntax reset") end
 
-  -- ensure UI matches the variant we’re previewing
   vim.o.background = LIGHT[name] and "light" or "dark"
   vim.opt.termguicolors = true
 
@@ -74,14 +72,13 @@ function P.open(core)
   preload_theme_plugins(core.list())
   local entries = build_entries(core)
 
-
   local orig = {
     name = vim.g.colors_name,
     tgc  = vim.o.termguicolors,
     last = vim.o.laststatus,
   }
-  -- Use a single global statusline during the picker: avoids NC vs active confusion
   vim.o.laststatus = 3
+
   local ok_t = pcall(require, "telescope")
   if not ok_t then
     local choices = {}
@@ -100,10 +97,23 @@ function P.open(core)
   local conf         = require("telescope.config").values
   local actions      = require("telescope.actions")
   local action_state = require("telescope.actions.state")
+  local themes       = require("telescope.themes")
+
+  -- Dropdown theme (tweak with globals if you like)
+  local dd = themes.get_dropdown({
+    border = true,
+    previewer = false,
+    results_title = false,
+    prompt_title = "Themes",
+    sorting_strategy = "ascending",
+    layout_config = {
+      width  = tonumber(vim.g.iris_dropdown_width  or 0.55), -- 0–1
+      height = tonumber(vim.g.iris_dropdown_height or 0.50), -- 0–1
+    },
+  })
 
   local last_previewed, gen = nil, 0
   local function restore()
-    -- restore tgc/colorscheme
     vim.opt.termguicolors = orig.tgc
     if orig.name and orig.name ~= "" then pcall(vim.cmd.colorscheme, orig.name)
     else pcall(vim.cmd.colorscheme, "default") end
@@ -126,13 +136,12 @@ function P.open(core)
 
   local default_idx = find_default_index(entries, core.list())
 
-  pickers.new({}, {
-    prompt_title = "Themes",
+  pickers.new(dd, {
     finder = finders.new_table({
       results     = entries,
       entry_maker = function(it) return { value = it, display = it.name, ordinal = it.name } end,
     }),
-    sorter = conf.generic_sorter({}),
+    sorter = conf.generic_sorter(dd),
     previewer = false,
     default_selection_index = default_idx,
     attach_mappings = function(bufnr, map)
@@ -146,19 +155,15 @@ function P.open(core)
       end
 
       local function confirm()
-        -- Apply the currently selected entry, then close.
         local e = action_state.get_selected_entry()
         if e and e.value then
           apply(core, e.value.name, e.value.from)
-          -- record what we just applied so future previews don't reapply needlessly
           last_previewed = e.value.from .. "::" .. e.value.name
         end
-        -- restore statusline mode after applying
         vim.o.laststatus = orig.last
         actions.close(bufnr)
       end
       local function cancel()
-        -- revert colors + restore statusline mode
         restore()
         vim.o.laststatus = orig.last
         actions.close(bufnr)
@@ -167,7 +172,6 @@ function P.open(core)
       map("n", "<Esc>", cancel);  map("i", "<Esc>", cancel)
       map("n", "<C-c>", cancel);  map("i", "<C-c>", cancel)
 
-      -- robust initial selection even on older Telescope
       vim.schedule(function()
         local picker = action_state.get_current_picker(bufnr)
         if picker and picker.set_selection then
